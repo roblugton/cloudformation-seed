@@ -148,15 +148,11 @@ class CloudformationCollection(util.DirectoryScanner):
     def parse_stacks(self) -> List[Tuple[str, str]]:
         stacks = list()
         raw_stacks = self.environment_parameters.get('stacks')
-        # Check if stacks is a list or a dict
         if raw_stacks and isinstance(raw_stacks, Dict):
-            # Stack is a dict, chekc if susbstack_name is set
             if self.substack_name == '':
-                #iterate over all substacks and append to stacks
                 for xs in raw_stacks:
                     stacks.extend(raw_stacks[xs])
                 return stacks
-            # Stacks is a dict, check if substack is present
             elif raw_stacks.get(self.substack_name, None) is not None:
                stacks.extend(raw_stacks[self.substack_name])
                return stacks
