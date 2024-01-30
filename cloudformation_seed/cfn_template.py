@@ -96,15 +96,18 @@ class CloudformationTemplate(object):
             self.template_body: CloudformationTemplateBody = self.load_template_file(self.o.local_path)
 
 
+
 class CloudformationCollection(util.DirectoryScanner):
     def __init__(self, path: str, s3_bucket: Any, s3_key_prefix: str,
-                    environment_parameters: Dict['str', Any]) -> None:
+                    environment_parameters: Dict['str', Any], substack_name: str = '') -> None:
         self.s3_bucket: Any = s3_bucket
         self.environment_parameters: Dict['str', Any] = environment_parameters
+        self.substack_name: str = substack_name
         self.template_files: List[Tuple[str, str]] = self.scan_directories(path, '**/*.cf.yaml')
         util.log_section('Collecting templates included in the environment')
         self.templates: List[CloudformationTemplate] = []
-        for xs in self.environment_parameters.get('stacks', list()):
+        self.stacks: List[Tuple[str, str]] = self.parse_stacks()
+        for xs in self.stacks:
             template_key = xs['template']
             # use s3 path
             if template_key.startswith("s3://"):
@@ -142,9 +145,32 @@ class CloudformationCollection(util.DirectoryScanner):
             )
         util.log_section('Done collecting templates')
 
+    def parse_stacks(self) -> List[Tuple[str, str]]:
+        stacks = list()
+        raw_stacks = self.environment_parameters.get('stacks')
+        # Check if stacks is a list or a dict
+        if raw_stacks and isinstance(raw_stacks, Dict):
+            # Stack is a dict, chekc if susbstack_name is set
+            if self.substack_name == '':
+                #iterate over all substacks and append to stacks
+                for xs in raw_stacks:
+                    stacks.extend(raw_stacks[xs])
+                return stacks
+            # Stacks is a dict, check if substack is present
+            elif raw_stacks.get(self.substack_name, None) is not None:
+               stacks.extend(raw_stacks[self.substack_name])
+               return stacks
+            else:
+                raise util.InvalidStackConfiguration(f"Unable to find substack '{self.substack_name}' in stacks '{raw_stacks.keys()}'")
+        elif raw_stacks and isinstance(raw_stacks, List):
+            return raw_stacks
+        else:
+            raise util.InvalidStackConfiguration(f'Invalid stacks definition')
+        
+
     def list_deployable(self) -> List[CloudformationTemplate]:
         u = list()
-        for xs in self.environment_parameters.get('stacks', list()):
+        for xs in self.stacks:
             try:
                 if xs.get('deployable', True) is False:
                     log.info(f'Stack {Fore.GREEN}{xs.get("name")}{Style.RESET_ALL} is not deployable, skipping')
