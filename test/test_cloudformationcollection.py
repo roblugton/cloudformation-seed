@@ -4,6 +4,7 @@ import unittest
 import yaml
 from unittest import mock
 from cloudformation_seed.cfn_template import CloudformationCollection
+from cloudformation_seed.util import InvalidStackConfiguration
 
 flat_stacks = """
 stacks:
@@ -92,7 +93,17 @@ class TestCloudformationCollection(unittest.TestCase):
           self.assertEqual(len(s), 2, 'should be reading 2 stacks')
           self.assertEqual(s[0]['name'], 'service1', 'first service should be service1')
           self.assertEqual(s[1]['name'], 'service2', 'second service should be service2')
-          
+
+    @mock.patch('cloudformation_seed.cfn_template.CloudformationCollection.find_template_file')      
+    def test_fails_if_substack_does_not_exist(self, mock_find_template_file):
+        y = yaml.safe_load(two_substacks_three_stacks)
+        mock_find_template_file.return_value = self.tf.name
+        with self.assertRaises(InvalidStackConfiguration) as err:
+          c = CloudformationCollection('foo', 'foo', 'foo', y, 'does_not_exist')
+        ex = err.exception
+        self.assertEqual(str(ex), "Unable to find substack 'does_not_exist' in stacks '['databases', 'services']'")
+        
+
     def tearDown(self) -> None:
       self.tf.close()
 
