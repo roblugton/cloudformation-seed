@@ -148,20 +148,18 @@ class CloudformationCollection(util.DirectoryScanner):
     def parse_stacks(self) -> List[Tuple[str, str]]:
         stacks = list()
         raw_stacks = self.environment_parameters.get('stacks')
+        if raw_stacks and isinstance(raw_stacks, List):
+            return raw_stacks
         if raw_stacks and isinstance(raw_stacks, Dict):
+            if raw_stacks.get(self.substack_name, None) is not None:
+               stacks.extend(raw_stacks[self.substack_name])
+               return stacks
             if self.substack_name == '':
                 for xs in raw_stacks:
                     stacks.extend(raw_stacks[xs])
                 return stacks
-            elif raw_stacks.get(self.substack_name, None) is not None:
-               stacks.extend(raw_stacks[self.substack_name])
-               return stacks
-            else:
-                raise util.InvalidStackConfiguration(f"Unable to find substack '{self.substack_name}' in stacks '{raw_stacks.keys()}'")
-        elif raw_stacks and isinstance(raw_stacks, List):
-            return raw_stacks
-        else:
-            raise util.InvalidStackConfiguration(f'Invalid stacks definition')
+            raise util.InvalidStackConfiguration(f"Unable to find substack '{self.substack_name}' in stacks '{[key for key in raw_stacks.keys()]}'")
+        raise util.InvalidStackConfiguration(f'Invalid stacks definition')
         
 
     def list_deployable(self) -> List[CloudformationTemplate]:
