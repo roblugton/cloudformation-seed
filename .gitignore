@@ -11,3 +11,4 @@ dist/**
 .python-version
 *.patch
 /tmp
+.venv
